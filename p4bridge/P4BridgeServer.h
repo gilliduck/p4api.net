@@ -373,6 +373,14 @@ public:
 	// Set the call back function to receive the binary output
 	void SetBinaryResultsCallbackFn(BinaryCallbackFn* pNew);
 
+	// Callbacks for handling progress
+	void SetProgressCallbacks(const ProgressCallbackSet& callbacks);
+
+	void SetProgressCallbacks(ProgressInitCallback* init,
+                         ProgressDescriptionCallback* desc,
+                         ProgressTotalCallback* total,
+                         ProgressUpdateCallback* update,
+                         ProgressDoneCallback* done);
 	// Callbacks for handling interactive resolve
 	int	Resolve( int cmdId, ClientMerge *m, Error *e );
 	int	Resolve( int cmdId, ClientResolveA *r, int preview, Error *e );

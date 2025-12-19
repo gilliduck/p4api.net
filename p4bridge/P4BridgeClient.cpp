@@ -92,12 +92,13 @@ P4BridgeClient::P4BridgeClient(P4BridgeServer* pserver, P4Connection* pcon)
 	objId = 0;
 
 	pServer = pserver;
+	progressCallbacks = {};
 }
 
 
 /*******************************************************************************
  *
- *  Constructor
+ *  Destructor
  *
  *  Free any storage that is still being used.
  *
@@ -703,6 +704,142 @@ int	P4BridgeClient::Resolve( ClientResolveA *r, int preview, Error *e )
 {
 	return pServer->Resolve(pCon->getId(), r, preview, e );
 }
+
+/*******************************************************************************
+ * 
+ *  P4BridgeClient::CreateProgress
+ *
+ *  Creates a new P4BridgeClientProgress object, passing the registered
+ *  progress callbacks and object ID.
+ *
+ ******************************************************************************/
+ClientProgress* P4BridgeClient::CreateProgress(int type)
+{
+	// Only create progress if at least one callback is set
+	if (!(progressCallbacks.Init || progressCallbacks.Description ||
+		progressCallbacks.Total || progressCallbacks.Update ||
+		progressCallbacks.Done))
+	{
+		return nullptr;
+	}
+    return new P4BridgeClientProgress(&progressCallbacks, type);
+}
+
+/*******************************************************************************
+ *
+ *  CreateProgress
+ *
+ *  Creates a progress object for file transfer operations, passing the
+ *  registered progress callbacks and object ID. The totalSize parameter
+ *  can be used if you want to track the total bytes for the operation.
+ *
+ ******************************************************************************/
+ClientProgress* P4BridgeClient::CreateProgress(int type, P4INT64 totalSize)
+{
+    // You can use totalSize if you want to pass it to your progress class.
+    // For now, we just ignore it, as the callbacks do not use it directly.
+	  // Only create progress if at least one callback is set
+    if (!(progressCallbacks.Init || progressCallbacks.Description ||
+          progressCallbacks.Total || progressCallbacks.Update ||
+          progressCallbacks.Done))
+    {
+        return nullptr;
+    }
+    return new P4BridgeClientProgress(&progressCallbacks, type);
+}
+
+/*******************************************************************************
+*
+*  ProgressIndicator
+*
+*  Returns 1 if progress callbacks are registered, 0 otherwise.
+*
+******************************************************************************/
+int P4BridgeClient::ProgressIndicator()
+{
+    return (progressCallbacks.Init || progressCallbacks.Description ||
+            progressCallbacks.Total || progressCallbacks.Update ||
+            progressCallbacks.Done) ? 1 : 0;
+}
+
+/*******************************************************************************
+*
+*  SetProgressCallbacks
+*
+*  Registers the set of progress callbacks to be used for progress reporting.
+*
+******************************************************************************/
+void P4BridgeClient::SetProgressCallbacks(const ProgressCallbackSet& callbacks)
+{
+    progressCallbacks = callbacks;
+}
+
+
+/*******************************************************************************
+ *
+ *  P4BridgeClientProgress Implementation
+ *
+ ******************************************************************************/
+
+P4BridgeClientProgress::P4BridgeClientProgress(const ProgressCallbackSet* cbSet, int t)
+    : callbacks(cbSet), type(t)
+{
+    // Invoke the Init callback if registered
+    if (callbacks && callbacks->Init)
+        callbacks->Init(type);
+}
+
+P4BridgeClientProgress::~P4BridgeClientProgress()
+{
+    // No cleanup needed
+}
+
+/*******************************************************************************
+*  Description
+*  Called when a progress description is available.
+******************************************************************************/
+
+void P4BridgeClientProgress::Description(const StrPtr* d, int u)
+{
+    if (callbacks && callbacks->Description)
+        callbacks->Description(d ? d->Text() : "", u);
+}
+
+/*******************************************************************************
+*  Total
+*  Called when the total work amount is known.
+******************************************************************************/
+
+void P4BridgeClientProgress::Total(long t)
+{
+    if (callbacks && callbacks->Total)
+        callbacks->Total(t);
+}
+
+/*******************************************************************************
+*  Update
+*  Called to report progress updates.
+*****************************************************************************/
+
+int P4BridgeClientProgress::Update(long update)
+{
+    if (callbacks && callbacks->Update)
+        callbacks->Update(update);
+    return 0;
+}
+
+/*******************************************************************************
+*  Done
+*  Called when the progress operation is complete.
+******************************************************************************/
+
+void P4BridgeClientProgress::Done(int f)
+{
+    if (callbacks && callbacks->Done)
+        callbacks->Done(f);
+}
+
+
 
 /*******************************************************************************
  * 

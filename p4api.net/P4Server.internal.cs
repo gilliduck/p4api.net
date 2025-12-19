@@ -862,6 +862,18 @@ namespace Perforce.P4
                 foreach (BinaryResultsDelegate d in binaryResults)
                     source.BinaryResultsReceived += d;
             }
+
+            // Copy progress callbacks to if set
+            if (source.progressInitCallback != null)
+                this.progressInitCallback = source.progressInitCallback;
+            if (source.progressDescriptionCallback != null)
+                this.progressDescriptionCallback = source.progressDescriptionCallback;
+            if (source.progressTotalCallback != null)
+                this.progressTotalCallback = source.progressTotalCallback;
+            if (source.progressUpdateCallback != null)
+                this.progressUpdateCallback = source.progressUpdateCallback;
+            if (source.progressDoneCallback != null)
+                this.progressDoneCallback = source.progressDoneCallback;
         }
 
         /// <summary>
@@ -963,6 +975,8 @@ namespace Perforce.P4
                 foreach (KeyValuePair p in transferArgs.dict)
                     P4Bridge.SetProtocol(target.pServer, p.Key, p.Value);
 
+                // Passing ProgressCallbacks to child thread
+                target.SetProgressCallbacks();
                 try
                 {
                     // Note: due to legacy (unused) cmdId code in p4bridge, cmdId < 0 will explicitly not call

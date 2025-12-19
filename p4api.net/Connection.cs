@@ -290,6 +290,53 @@ namespace Perforce.P4
         private Credential credential;
 
         /// <summary>
+        /// Progress handler for reporting progress events during command execution.
+        /// If set, progress callbacks will be registered with the server.
+        /// </summary>
+
+        public ProgressHandler Progress
+        {
+            get
+            {
+                if (connectionEstablished())
+                {
+                    return getP4Server().Progress;
+                }
+                return null;
+            }
+            set
+            {
+                if (connectionEstablished())
+                {
+                    getP4Server().Progress = value;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Sets the progress handler for reporting progress events during command execution.
+        /// <param name="handler">The progress handler to use for progress reporting.</param>
+        /// </summary>
+        public void SetProgressHandler(ProgressHandler handler)
+        {
+            if (connectionEstablished())
+            {
+                getP4Server().SetProgressHandler(handler);
+            }
+        }
+
+        /// <summary>
+        /// Resets the progress handler, disabling progress event reporting for subsequent commands.
+        /// </summary>
+        public void ResetProgressHandler()
+        {
+            if (connectionEstablished())
+            {
+                getP4Server().ResetProgressHandler();
+            }
+        }
+
+        /// <summary>
         /// What API level does the server support?
         /// </summary>
         public int ApiLevel
@@ -895,7 +942,7 @@ namespace Perforce.P4
                         }
                     }
 
-                        if (results.TaggedOutput != null && options.ContainsKey("-s"))
+                        if (results.TaggedOutput != null && options != null && options.ContainsKey("-s"))
                     {
                             // if this was a display status request, we can get the active ticket
                         // by calling GetPassword() on the C++ api server

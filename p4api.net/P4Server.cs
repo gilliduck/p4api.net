@@ -86,6 +86,7 @@ namespace Perforce.P4
         internal object Sync = new object();
 
         private Dictionary<int, P4CommandResult> _lastResultsCache;
+        private readonly object _lastResultsCacheLock = new object();
         /// <summary>
         /// The results of the last command executed on this thread
         /// </summary>
@@ -93,20 +94,26 @@ namespace Perforce.P4
         {
             get
             {
-                if (_lastResultsCache.ContainsKey(System.Threading.Thread.CurrentThread.ManagedThreadId))
+                int threadId = System.Threading.Thread.CurrentThread.ManagedThreadId;
+
+                lock (_lastResultsCacheLock)
                 {
-                    return _lastResultsCache[System.Threading.Thread.CurrentThread.ManagedThreadId];
+                    if (_lastResultsCache != null && _lastResultsCache.TryGetValue(threadId, out var result))
+                    {
+                        return result;
                 }
                 return null;
             }
+            }
             internal set
             {
+                int threadId = System.Threading.Thread.CurrentThread.ManagedThreadId;
+                lock (_lastResultsCacheLock)
+                {
                 if (_lastResultsCache == null)
                 {
                     _lastResultsCache = new Dictionary<int, P4CommandResult>();
                 }
-                lock (_lastResultsCache)
-                {
                     if (_lastResultsCache.Count > 32)
                     {
                         // if the results cache is getting large, throw away anything older than 10 seconds
@@ -118,12 +125,11 @@ namespace Perforce.P4
                             if (_lastResultsCache[key].TimeStamp < old)
                             {
                                 Debug.Trace(string.Format("Throwing away results for thread, {0}", key));
-
                                 _lastResultsCache.Remove(key);
                             }
                         }
                     }
-                    _lastResultsCache[System.Threading.Thread.CurrentThread.ManagedThreadId] = value;
+                    _lastResultsCache[threadId] = value;
                 }
             }
         }
@@ -189,6 +195,52 @@ namespace Perforce.P4
 
         private static P4CallBacks.LogMessageDelegate logfn = new P4CallBacks.LogMessageDelegate(LogBridgeMessage);
         private static IntPtr pLogFn = IntPtr.Zero; // contains pinned pointer for the bridge
+
+        /// <summary>
+        /// Progress callback delegates and registration.
+        /// Used to receive progress events from the bridge while running commands.
+        /// </summary>
+        public ProgressHandler Progress { get; set; }
+        private P4CallBacks.ProgressInitCallback progressInitCallback;
+        private P4CallBacks.ProgressDescriptionCallback progressDescriptionCallback;
+        private P4CallBacks.ProgressTotalCallback progressTotalCallback;
+        private P4CallBacks.ProgressUpdateCallback progressUpdateCallback;
+        private P4CallBacks.ProgressDoneCallback progressDoneCallback;
+
+        public void SetProgressCallbacks()
+        {
+            if (Progress != null)
+            {
+                progressInitCallback = Progress.Init;
+                progressDescriptionCallback = Progress.Description;
+                progressTotalCallback = Progress.Total;
+                progressUpdateCallback = Progress.Update;
+                progressDoneCallback = Progress.Done;
+
+                P4Bridge.SetProgressCallbacks(
+                    pServer,
+                    Progress.Init != null ? Marshal.GetFunctionPointerForDelegate(Progress.Init) : IntPtr.Zero,
+                    Progress.Description != null ? Marshal.GetFunctionPointerForDelegate(Progress.Description) : IntPtr.Zero,
+                    Progress.Total != null ? Marshal.GetFunctionPointerForDelegate(Progress.Total) : IntPtr.Zero,
+                    Progress.Update != null ? Marshal.GetFunctionPointerForDelegate(Progress.Update) : IntPtr.Zero,
+                    Progress.Done != null ? Marshal.GetFunctionPointerForDelegate(Progress.Done) : IntPtr.Zero);
+            }
+        }
+        /// <summary>
+        /// Set the progress handler for reporting progress events.
+        /// </summary>
+        public void SetProgressHandler(ProgressHandler handler)
+        {
+            Progress = handler;
+        }
+
+        /// <summary>
+        /// Reset the progress handler.
+        /// </summary>
+        public void ResetProgressHandler()
+        {
+            Progress = null;
+        }
 
         /// <summary>
         /// Create a P4BridgeServer used to connect to the specified P4Server
@@ -1028,6 +1080,15 @@ namespace Perforce.P4
         // runLock synchronizes the idle disconnect timeout and the main execution thread
         private Object runLock = new Object();
 
+        //check for generic parallel error
+        private bool IsGenericParallelError(P4ClientError err)
+        {
+            // Adjust this check to match your actual generic error code/message.
+            // The default message from P4BridgeServer.cpp is "Error detected during parallel operation"
+            return err != null && err.ErrorMessage != null &&
+                   err.ErrorMessage.Contains("Error detected during parallel operation");
+        }
+
         /// <summary>
         /// Run a P4 command on the P4 Server
         /// </summary>
@@ -1139,6 +1200,17 @@ namespace Perforce.P4
                             {
                                 if (e.ErrorCode == P4ClientError.MsgRpc_Break)
                                     throw new P4CommandCanceledException(String.Format("Command {0} cancelled", cmdId));
+                            }
+                            // If there are multiple errors, and one is the generic parallel error, remove it
+                            if (_errorList != null && _errorList.Count > 1)
+                            {
+                                _errorList.RemoveAll(IsGenericParallelError);
+                            }
+                            // If there is only one error and it's the generic parallel error, but parallelErrors is set, replace it
+                            if (_errorList != null && _errorList.Count == 1 && IsGenericParallelError(_errorList[0]) && parallelErrors != null && parallelErrors.Count > 0)
+                            {
+                                _errorList.Clear();
+                                _errorList.AddRange(parallelErrors);
                             }
                             P4Exception.Throw(cmd, args, _errorList, GetInfoResults(cmdId));
                         }

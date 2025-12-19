@@ -187,6 +187,45 @@ int ServerConnectTrust(P4BridgeServer* pServer, char* trust_flag, char* fingerpr
 		return 0;
 	}
 }
+/*******************************************************************************
+ *
+ *  Progress Callback Functions (Exported)
+ *
+ *  These functions allow .NET and other clients to register progress reporting
+ *  callbacks with the bridge..
+ *
+ *   SetProgressCallbacks: Registers the progress event callbacks for a server connection.
+ *   CanParallelProgress: Returns 1 if parallel progress reporting is supported.
+ *
+ ******************************************************************************/
+
+extern "C" {
+
+EXPORT void SetProgressCallbacks(
+    P4BridgeServer* pServer,
+    ProgressInitCallback init,
+    ProgressDescriptionCallback desc,
+    ProgressTotalCallback total,
+    ProgressUpdateCallback update,
+    ProgressDoneCallback done)
+{
+    try
+    {
+        VALIDATE_HANDLE_V(pServer, tP4BridgeServer)
+        pServer->SetProgressCallbacks(init, desc, total, update, done);
+    }
+    catch (exception& e)
+    {
+        P4BridgeServer::ReportException(e, "SetProgressCallbacks");
+    }
+}
+
+EXPORT int CanParallelProgress()
+{
+    return 1;
+}
+
+}
 
 /******************************************************************************
  * 'Flat' C interface for the dll. This interface will be imported into C# 
@@ -413,6 +452,7 @@ extern "C"
 			pServer->SetParallelTransferCallbackFn(nullptr);
 			pServer->SetResolveCallbackFn(nullptr);
 			pServer->SetResolveACallbackFn(nullptr);
+			pServer->SetProgressCallbacks(nullptr, nullptr, nullptr, nullptr, nullptr);
 
 			LOG_LOC();
 			int ret = pServer->close_connection();

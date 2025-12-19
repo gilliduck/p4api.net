@@ -1,7 +1,7 @@
                            Release Notes for
                 P4API.NET, the P4 API for .NET
 
-                          Version 2025.1
+                          Version 2025.2
 
 Introduction
 
@@ -60,13 +60,13 @@ Compatibility Statements
 
         Server Compatibility
 
-          This release of P4API.NET supports the P4 Server 2025.1.
+          This release of P4API.NET supports the P4 Server 2025.2.
           Older releases might work but are not supported.
 
         API Compatibility
 
-          This release of P4API.NET requires the 2025.1 P4 C/C++ API
-          (2025.1/2761706), built with Visual Studio 2019 or 
+          This release of P4API.NET requires the 2025.2 P4 C/C++ API
+          (2025.2/2852709), built with Visual Studio 2019 or 
           later.
 
         C#/.NET Compatibility
@@ -121,6 +121,41 @@ Key to symbols used in change notes below.
           * -- requires new P4API.NET
          ** -- requires P4API.NET built with new P4 C/C++ API
         *** -- requires new p4d server program
+
+--------------------------------------------------------------------------
+New functionality in 2025.2 (2025.2/2872434) (2525/12/18) 
+
+        #2868578(Job #128781) * ** ***
+            Updated P4API.NET to support 2025.2 release of P4 C/C++ API.
+
+        #2846339,2868407 (Job #126769) * 
+            Added support for progress reporting in p4api.net.
+            ProgressHandler can now be set on the Connection to receive
+            progress events for commands. See documentation for details.
+
+
+--------------------------------------------------------------------------
+Bugs fixed in 2025.2 (2025.2/2872434) (2525/12/18) 
+
+        #2822770,2829560 (Job #124531) *
+            Fixed native library selection in NuGet package to use RuntimeIdentifier,
+            ensuring correct binaries are included for all cross-platform builds.
+
+        #2852908 (Job #126779) *
+            Improved parallel sync error handling to report specific client errors
+            instead of generic error.
+
+        #2845645 (Job #126913) *
+            Fixed parsing logic in changelist creation to handle server trigger
+            messages without throwing exception.
+
+        #2852906 (Job #127454) *
+            Handled null pointer exception when options is null during login.
+
+        (Job #127192) * ** ***
+            Fixed crash during ReconcileFiles on files locked with FileShare.None,
+            caused by a bug in the P4 C/C++ API and resolved in the latest update.
+
 
 --------------------------------------------------------------------------
 New functionality in 2025.1 (2025.1/2773624) (2025/06/03)

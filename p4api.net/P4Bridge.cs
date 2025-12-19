@@ -163,7 +163,6 @@ namespace Perforce.P4
         [DllImport(bridgeDll, CallingConvention = CallingConvention.Cdecl)]
         public static extern long GetStringReleases();
 
-
         public static String GetAllocObjectName(int type)
         {
             return P4Server.MarshalPtrToStringUtf8_Int(P4Debugging.GetAllocObjName(type));
@@ -322,6 +321,49 @@ namespace Perforce.P4
 		/// <param name="preview">Preview only</param>
 		/// <returns>Resolve result</returns>
 		public delegate int ResolveADelegate(uint cmdID, IntPtr Resolver, bool preview);
+
+		/// <summary>
+		/// Delegate definition for the progress init callback.
+		/// Called when a progress operation is initialized.
+		/// </summary>
+		public delegate void ProgressInitCallback(int type);
+
+		/// <summary>
+		/// Delegate definition for the progress description callback.
+		/// Provides a description and units for the progress operation.
+		/// </summary>
+		public delegate void ProgressDescriptionCallback(string desc, int units);
+
+		/// <summary>
+		/// Delegate definition for the progress total callback.
+		/// Indicates the total work units for the progress operation.
+		/// </summary>
+		public delegate void ProgressTotalCallback(long total);
+
+		/// <summary>
+		/// Delegate definition for the progress update callback.
+		/// Called to report incremental progress updates.
+		/// </summary>
+		public delegate void ProgressUpdateCallback(long update);
+
+		/// <summary>
+		/// Delegate definition for the progress done callback.
+		/// Called when the progress operation is complete.
+		/// </summary>
+		public delegate void ProgressDoneCallback(int failed);
+	}
+
+	/// <summary>
+	/// Handler class for progress reporting delegates.
+	/// Used to group progress callbacks for bridge operations.
+	/// </summary>
+	public class ProgressHandler
+	{
+		public P4CallBacks.ProgressInitCallback Init { get; set; }
+		public P4CallBacks.ProgressDescriptionCallback Description { get; set; }
+		public P4CallBacks.ProgressTotalCallback Total { get; set; }
+		public P4CallBacks.ProgressUpdateCallback Update { get; set; }
+		public P4CallBacks.ProgressDoneCallback Done { get; set; }
 	}
 
 	/// <summary>
@@ -601,6 +643,24 @@ namespace Perforce.P4
             CallingConvention = CallingConvention.Cdecl)]
         public static extern void SetProtocol(IntPtr pServer, string var, string val);
 
+        /// <summary>
+        /// Registers progress callbacks for a given server connection.
+        /// Allows .NET clients to receive progress events while running commands.
+        /// </summary>
+        [DllImport(bridgeDll, CallingConvention = CallingConvention.Cdecl)]
+		public static extern void SetProgressCallbacks(
+		IntPtr pServer,
+		IntPtr init,
+		IntPtr desc,
+		IntPtr total,
+		IntPtr update,
+		IntPtr done);
+
+        /// <summary>
+        /// Returns 1 if parallel progress reporting is supported by the bridge.
+        /// </summary>
+        [DllImport(bridgeDll, CallingConvention = CallingConvention.Cdecl)]
+		public static extern int CanParallelProgress();
         /// <summary>
         /// Run a command on the P4 Server
         /// </summary>

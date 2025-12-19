@@ -305,6 +305,7 @@ P4BridgeServer::~P4BridgeServer(void)
 		pResolveCallbackFn = nullptr;
 		pResolveACallbackFn = nullptr;
 		pParallelTransferCallbackFn = nullptr;
+		SetProgressCallbacks(nullptr, nullptr, nullptr, nullptr, nullptr);
 
 		close_connection();
 	
@@ -1041,6 +1042,12 @@ int P4BridgeServer::run_command(const char* cmd, int cmdId, int tagged, char con
 
 		// Clear any ui pointer
 		ui->SetTransfer(nullptr);
+	}
+	if (ui)
+	{
+		//Resetting progress callbacks after each command execution
+		ProgressCallbackSet emptyProgressCallbacks = { nullptr, nullptr, nullptr, nullptr, nullptr };
+		ui->SetProgressCallbacks(emptyProgressCallbacks);
 	}
 
 	P4ClientError* errors = ui->GetErrorResults();
@@ -1948,6 +1955,22 @@ void P4BridgeServer::SetBinaryResultsCallbackFn(BinaryCallbackFn* pNew)
 	pBinaryResultsCallbackFn = pNew;
 }
 
+//Set the progress callbacks
+void P4BridgeServer::SetProgressCallbacks(const ProgressCallbackSet& callbacks)
+{
+    if (get_ui())
+        get_ui()->SetProgressCallbacks(callbacks);
+}
+
+void P4BridgeServer::SetProgressCallbacks(ProgressInitCallback* init,
+                                          ProgressDescriptionCallback* desc,
+                                          ProgressTotalCallback* total,
+                                          ProgressUpdateCallback* update,
+                                          ProgressDoneCallback* done)
+{
+    ProgressCallbackSet callbacks = {init, desc, total, update, done};
+    SetProgressCallbacks(callbacks);
+}
 // Callbacks for handling interactive resolve
 int	P4BridgeServer::Resolve( int cmdId, ClientMerge *m, Error *e )
 {

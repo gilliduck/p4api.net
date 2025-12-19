@@ -27,6 +27,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *******************************************************************************/
 
 #include <vector>
+#include <clientprog.h>
 
 using std::vector;
 
@@ -337,6 +338,28 @@ public:
 
 	virtual int Type(void) { return tP4ClientResolve; }
 };
+/*******************************************************************************
+ *
+ *  ProgressCallbackSet
+ *
+ *  This struct holds function pointers for progress reporting callbacks.
+ *  The client can register these to receive progress events as commands run.
+ *
+ ******************************************************************************/
+typedef void STDCALL ProgressInitCallback(int type);
+typedef void STDCALL ProgressDescriptionCallback(const char* desc, int units);
+typedef void STDCALL ProgressTotalCallback(long total);
+typedef void STDCALL ProgressUpdateCallback(long update);
+typedef void STDCALL ProgressDoneCallback(int failed);
+
+struct ProgressCallbackSet
+{
+    ProgressInitCallback* Init;
+    ProgressDescriptionCallback* Description;
+    ProgressTotalCallback* Total;
+    ProgressUpdateCallback* Update;
+    ProgressDoneCallback* Done;
+};
 
 /*******************************************************************************
  *
@@ -414,7 +437,8 @@ private:
 	StrBuf * ExceptionError;
 
 	PromptCallbackFn * pPromptCallbackFn;
-
+	// Progress callback set for reporting progress events
+	ProgressCallbackSet progressCallbacks;
 	P4Connection* pCon;
 
 	// Construct + Destructor
@@ -423,25 +447,36 @@ private:
 	virtual ~P4BridgeClient(void);
 	friend class P4Connection;
 
+
+
 public:
-	virtual int Type(void) { return tP4BridgeClient; }
+	virtual int Type(void) override  { return tP4BridgeClient; }
 
 	// Intercept and decode the messages received from the p4api.
 	//  Based on there level, the will be processed as information or
 	//  error messages.
-	virtual void Message( Error *err );
+	virtual void Message( Error *err ) override;
 
+	//These methods implements the ClientUser and ClientProgress interfaces for progress reporting
+	//They allow client to receive progress events as commands are run.
+	void SetProgressCallbacks(const ProgressCallbackSet& callbacks);
+    const ProgressCallbackSet* GetProgressCallbacks() const { return &progressCallbacks; }
+
+	ClientProgress* CreateProgress(int type, P4INT64 totalSize) override;
+	ClientProgress* CreateProgress(int type) override;
+	int ProgressIndicator() override;
+	int CanParallelProgress() override { return 1; }
 	// These are the ClientUser overrides to receive the data back from the
 	//  P4 server.
-	virtual void OutputBinary( const char *data, int length );
+	virtual void OutputBinary( const char *data, int length ) override;
 
-	virtual void OutputText( const char *data, int length );
-	virtual void OutputStat( StrDict *dict );
-	virtual void InputData( StrBuf *buf, Error *err );
-	virtual void HandleError( Error *err );
-	virtual void OutputError( const char *err ); // For broken servers
+	virtual void OutputText( const char *data, int length ) override;
+	virtual void OutputStat( StrDict *dict ) override;
+	virtual void InputData( StrBuf *buf, Error *err ) override;
+	virtual void HandleError( Error *err ) override;
+	virtual void OutputError( const char *err ) override; // For broken servers
 	virtual void Diff( FileSys *f1, FileSys *f2, int doPage, 
-				char *diffFlags, Error *e );
+				char *diffFlags, Error *e ) override;
 
 	void HandleError( P4ClientError * pNewError );
 	void HandleError( int severity, int	errorCode, const char *errMsg );
@@ -449,7 +484,7 @@ public:
 	void HandleInfoMsg( int msgCode, char level, const char *infMsg );
 	void HandleInfoMsg( P4ClientInfoMsg * pNewMsg );
 
-	void HandleUrl(const StrPtr* url);
+	void HandleUrl(const StrPtr* url) override;
 
 	// Put the calls to the callback in Structured Exception Handlers to catch
 	//  any problems in the call like bad function pointers.
@@ -471,6 +506,7 @@ public:
 	// Get the error output after a command completes
 	P4ClientError * GetErrorResults();
 
+
 	// Set the data for a command. Some commands, such as those which use spec
 	//  data will use this override to obtain the data needed by the command.
 	//  The data must be set before the command is run.
@@ -478,7 +514,7 @@ public:
 	StrPtr * GetDataSet( void );
 
 	void Prompt( const StrPtr &msg, StrBuf &rsp, 
-				int noEcho, Error *e );
+				int noEcho, Error *e ) override;
 
 	// Get the information output after a command completes
 	// Get the error output after a command completes
@@ -493,8 +529,8 @@ public:
 	const unsigned char* GetBinaryResults();
 
 	// Callbacks for handling interactive resolve
-	int	Resolve( ClientMerge *m, Error *e );
-	int	Resolve( ClientResolveA *r, int preview, Error *e );
+	int	Resolve( ClientMerge *m, Error *e ) override;
+	int	Resolve( ClientResolveA *r, int preview, Error *e ) override;
 
 private:
 	P4BridgeServer* pServer;
@@ -506,3 +542,26 @@ private:
 	void clear_info_list(P4ClientInfoMsg* list);
 };
 
+/*******************************************************************************
+ *
+ *  P4BridgeClientProgress
+ *  
+ *  Implements the ClientProgress interface and invokes the registered progress
+ *  callbacks in P4BridgeClient as progress events occur.
+ *
+ ******************************************************************************/
+class P4BridgeClientProgress : public ClientProgress
+{
+public:
+    P4BridgeClientProgress(const ProgressCallbackSet* cbSet, int t);
+    virtual ~P4BridgeClientProgress();
+
+    void Description(const StrPtr* d, int u) override;
+    void Total(long t) override;
+    int Update(long update) override;
+    void Done(int f) override;
+
+private:
+    const ProgressCallbackSet* callbacks;
+    int type;
+};

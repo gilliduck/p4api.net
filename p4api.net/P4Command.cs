@@ -40,6 +40,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Text;
+using System.Runtime.InteropServices;
 
 namespace Perforce.P4
 {
@@ -408,6 +409,12 @@ namespace Perforce.P4
 				if (CmdPromptHandler != null)
 					pServer.PromptHandler = CmdPromptHandler;
 
+                // Register progress callbacks if a Progress handler is provided.
+                // This enables reporting of progress events
+                if (pServer.Progress != null)
+                {
+                    pServer.SetProgressCallbacks();
+                }
 				// clear any saved results
 				infoOutput = new P4ClientInfoMessageList();
 

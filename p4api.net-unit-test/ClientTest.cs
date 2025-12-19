@@ -6,6 +6,8 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
+using System.Collections.Concurrent;
+using System.Threading;
 using NLog;
 
 namespace p4api.net.unit.test
@@ -69,6 +71,17 @@ namespace p4api.net.unit.test
 
         #endregion
 
+        private ProgressHandler GetProgressHandler(ConcurrentBag<string> events)
+        {
+            return new ProgressHandler
+            {
+                Init = (type) => events.Add($"Init:{type},thread:{Thread.CurrentThread.ManagedThreadId}"),
+                Description = (desc, units) => events.Add($"Desc:{desc},units:{units},thread:{Thread.CurrentThread.ManagedThreadId}"),
+                Total = (total) => events.Add($"Total:{total},thread:{Thread.CurrentThread.ManagedThreadId}"),
+                Update = (update) => events.Add($"Update:{update},thread:{Thread.CurrentThread.ManagedThreadId}"),
+                Done = (failed) => events.Add($"Done:{failed},thread:{Thread.CurrentThread.ManagedThreadId}")
+            };
+        }
 
         /// <summary>
         ///A test for Client Constructor
@@ -757,6 +770,84 @@ namespace p4api.net.unit.test
         }
 
         /// <summary>
+        /// A test for DeleteFiles with progress handler
+        /// </summary>
+        [TestMethod()]
+        public void DeleteFilesWithProgressTest()
+        {
+            Utilities.CheckpointType cptype = Utilities.CheckpointType.A;
+
+            string uri = configuration.ServerPort;
+            string user = "admin";
+            string pass = string.Empty;
+            string ws_client = "admin_space";
+
+            for (int i = 0; i < 2; i++) // run once for ascii, once for unicode
+            {
+                Process p4d = null;
+                Repository rep = null;
+                try
+                {
+                    p4d = Utilities.DeployP4TestServer(TestDir, cptype, TestContext.TestName);
+                    Assert.IsNotNull(p4d, "Setup Failure");
+
+                    var clientRoot = Utilities.TestClientRoot(TestDir, cptype);
+                    var adminSpace = Path.Combine(clientRoot, "admin_space");
+                    Directory.CreateDirectory(adminSpace);
+                    Server server = new Server(new ServerAddress(uri));
+                    rep = new Repository(server);
+                    Utilities.SetClientRoot(rep, TestDir, cptype, ws_client);
+
+                    using (Connection con = rep.Connection)
+                    {
+                        con.UserName = user;
+                        con.Client = new Client();
+                        con.Client.Name = ws_client;
+
+                        Assert.AreEqual(con.Status, ConnectionStatus.Disconnected);
+                        Assert.AreEqual(con.Server.State, ServerState.Unknown);
+                        Assert.IsTrue(con.Connect(null));
+                        Assert.AreEqual(con.Server.State, ServerState.Online);
+                        Assert.AreEqual(con.Status, ConnectionStatus.Connected);
+                        Assert.AreEqual("admin", con.Client.OwnerName);
+
+                        var events = new ConcurrentBag<string>();
+                        var progress = GetProgressHandler(events);
+                        con.SetProgressHandler(progress);
+
+                        FileSpec toFile = new FileSpec(new LocalPath(Path.Combine(adminSpace, "MyCode", "ReadMe.txt")),
+                            null);
+                        Options options = new Options(DeleteFilesCmdFlags.None, -1);
+                        IList<FileSpec> oldfiles = con.Client.DeleteFiles(options, toFile);
+
+                        Assert.AreEqual(1, oldfiles.Count);
+                        Assert.IsTrue(events.Count > 0, "Progress events should be reported for DeleteFiles.");
+
+                        events = new ConcurrentBag<string>();
+                        progress = GetProgressHandler(events);
+                        con.SetProgressHandler(progress);
+
+                        con.Client.RevertFiles(null, toFile);
+
+                        options = new Options(DeleteFilesCmdFlags.None, 0);
+                        oldfiles = con.Client.DeleteFiles(options, toFile);
+
+                        Assert.AreEqual(1, oldfiles.Count);
+                        Assert.IsTrue(events.Count > 0, "Progress events should be reported for DeleteFiles.");
+                    }
+                }
+                finally
+                {
+                    Utilities.RemoveTestServer(p4d, TestDir);
+                    p4d?.Dispose();
+                    rep?.Dispose();
+                }
+
+                cptype = Utilities.CheckpointType.U;
+            }
+        }
+
+        /// <summary>
         ///A test for DeleteFiles with Preview Only option
         ///</summary>
         [TestMethod()]
@@ -1150,6 +1241,98 @@ namespace p4api.net.unit.test
                         oldfiles = con.Client.IntegrateFiles(fromFile, options, toFile);
 
                         Assert.AreEqual(1, oldfiles.Count);
+                    }
+                }
+                finally
+                {
+                    Utilities.RemoveTestServer(p4d, TestDir);
+                    p4d?.Dispose();
+                    rep?.Dispose();
+                }
+                cptype = Utilities.CheckpointType.U;
+            }
+        }
+
+        /// <summary>
+        ///A test for IntegrateFiles for the 
+        /// "p4 integrate [options] fromFile[revRange] toFile"
+        /// version of integrate for progress handler
+        /// </summary>
+        [TestMethod()]
+        public void IntegrateFilesWithProgressTest()
+        {
+            Utilities.CheckpointType cptype = Utilities.CheckpointType.A;
+
+            string uri = configuration.ServerPort;
+            string user = "admin";
+            string pass = string.Empty;
+            string ws_client = "admin_space";
+
+            for (int i = 0; i < 2; i++) // run once for ascii, once for unicode
+            {
+                Process p4d = null;
+                Repository rep = null;
+                try
+                {
+                    p4d = Utilities.DeployP4TestServer(TestDir, cptype, TestContext.TestName);
+                    Assert.IsNotNull(p4d, "Setup Failure");
+
+                    var clientRoot = Utilities.TestClientRoot(TestDir, cptype);
+                    var adminSpace = Path.Combine(clientRoot, "admin_space");
+                    Directory.CreateDirectory(adminSpace);
+                    
+                    Server server = new Server(new ServerAddress(uri));
+                    rep = new Repository(server);
+                    Utilities.SetClientRoot(rep, TestDir, cptype, ws_client);
+
+                    using (Connection con = rep.Connection)
+                    {
+                        con.UserName = user;
+                        con.Client = new Client();
+                        con.Client.Name = ws_client;
+
+                        Assert.AreEqual(con.Status, ConnectionStatus.Disconnected);
+                        Assert.AreEqual(con.Server.State, ServerState.Unknown);
+                        Assert.IsTrue(con.Connect(null));
+                        Assert.AreEqual(con.Server.State, ServerState.Online);
+                        Assert.AreEqual(con.Status, ConnectionStatus.Connected);
+                        Assert.AreEqual("admin", con.Client.OwnerName);
+
+                        var events = new ConcurrentBag<string>();
+                        var progress = GetProgressHandler(events);
+                        con.SetProgressHandler(progress);
+
+                        FileSpec fromFile = new FileSpec(new LocalPath(Path.Combine(adminSpace, "MyCode", "ReadMe.txt")),
+                            null);
+                        FileSpec toFile =
+                            new FileSpec(new LocalPath(Path.Combine(adminSpace, "branchAlpha", "ReadMe.txt")), null);
+                        Options options = new Options(IntegrateFilesCmdFlags.None,
+                            -1,
+                            10,
+                            null,
+                            null,
+                            null);
+                        IList<FileSpec> oldfiles = con.Client.IntegrateFiles(fromFile, options, toFile);
+
+                        Assert.AreEqual(1, oldfiles.Count);
+                        Assert.IsTrue(events.Count > 0, "Progress events should be reported for IntegrateFiles.");
+
+                        events = new ConcurrentBag<string>();
+                        progress = GetProgressHandler(events);
+                        con.SetProgressHandler(progress);
+
+                        con.Client.RevertFiles(null, toFile);
+
+                        options = new Options(IntegrateFilesCmdFlags.None,
+                            0,
+                            10,
+                            null,
+                            null,
+                            null);
+                        oldfiles = con.Client.IntegrateFiles(fromFile, options, toFile);
+
+                        Assert.AreEqual(1, oldfiles.Count);
+                        Assert.IsTrue(events.Count > 0, "Progress events should be reported for IntegrateFiles.");
                     }
                 }
                 finally
@@ -2493,6 +2676,86 @@ namespace p4api.net.unit.test
         }
 
         /// <summary>
+        /// A test for SubmitFiles for progress handler
+        /// </summary>
+        [TestMethod()]
+        public void SubmitFilesTestWithProgress()
+        {
+            Utilities.CheckpointType cptype = Utilities.CheckpointType.A;
+
+            string uri = configuration.ServerPort;
+            string user = "admin";
+            string pass = string.Empty;
+            string ws_client = "admin_space";
+
+            for (int i = 0; i < 1; i++) // run once for ascii, once for unicode
+            {
+                Process p4d = null;
+                Repository rep = null;
+                try
+                {
+                    p4d = Utilities.DeployP4TestServer(TestDir, 3, cptype);
+                    Assert.IsNotNull(p4d, "Setup Failure");
+
+                    Server server = new Server(new ServerAddress(uri));
+                    rep = new Repository(server);
+                    Utilities.SetClientRoot(rep, TestDir, cptype, ws_client);
+
+                    using (Connection con = rep.Connection)
+                    {
+                        con.UserName = user;
+                        con.Client = new Client();
+                        con.Client.Name = ws_client;
+
+                        Assert.AreEqual(con.Status, ConnectionStatus.Disconnected);
+
+                        Assert.AreEqual(con.Server.State, ServerState.Unknown);
+
+                        Assert.IsTrue(con.Connect(null));
+
+                        Assert.AreEqual(con.Server.State, ServerState.Online);
+
+                        Assert.AreEqual(con.Status, ConnectionStatus.Connected);
+
+                        Assert.AreEqual("admin", con.Client.OwnerName);
+
+                        var events = new ConcurrentBag<string>();
+                        var progress = GetProgressHandler(events);
+                        con.SetProgressHandler(progress);
+
+                        FileSpec fromFile = null;
+                        // new FileSpec(new LocalPath(Path.Combine(adminSpace, "TestData", "*.txt"), null);
+                        Options sFlags = new Options(
+                            SubmitFilesCmdFlags.None,
+                            -1,
+                            null,
+                            "Submit the default changelist",
+                            null
+                        );
+                        SubmitResults sr = null;
+                        try
+                        {
+                            sr = con.Client.SubmitFiles(sFlags, fromFile);
+                        }
+                        catch
+                        {
+                        } // will fail because we need to resolve
+
+                        Assert.IsNotNull(sr);
+                        Assert.IsTrue(events.Count > 0, "Progress events should be reported for SubmitFiles.");
+                    }
+                }
+                finally
+                {
+                    Utilities.RemoveTestServer(p4d, TestDir);
+                    p4d?.Dispose();
+                    rep?.Dispose();
+                }
+                cptype = Utilities.CheckpointType.U;
+            }
+        }
+
+        /// <summary>
         ///A test for SubmitFiles
         ///</summary>
         [TestMethod()]
@@ -3321,6 +3584,168 @@ namespace p4api.net.unit.test
         }
 
         /// <summary>
+        /// A test for ReconcileFiles with progress handler
+        /// </summary>
+        [TestMethod()]
+        public void ReconcileFilesWithProgressTest()
+        {
+            string uri = configuration.ServerPort;
+            string user = "admin";
+            string pass = string.Empty;
+            string ws_client = "admin_space";
+
+            for (int i = 0; i < 1; i++) // run only once for ascii
+            {
+                var cptype = (Utilities.CheckpointType)i;
+
+                var adminSpace = Path.Combine(Utilities.TestClientRoot(TestDir, cptype), "admin_space");
+
+                Process p4d = null;
+                Repository rep = null;
+                try
+                {
+                    p4d = Utilities.DeployP4TestServer(TestDir, 2, cptype);
+                    Assert.IsNotNull(p4d, "Setup Failure");
+
+                    Utilities.DeleteDirectory(adminSpace);  // get rid of workspace cruft
+                    Directory.CreateDirectory(adminSpace);
+                    Server server = new Server(new ServerAddress(uri));
+                    rep = new Repository(server);
+                    Utilities.SetClientRoot(rep, TestDir, cptype, ws_client, false);
+
+                    using (Connection con = rep.Connection)
+                    {
+                        con.UserName = user;
+                        con.Client = new Client();
+                        con.Client.Name = ws_client;
+                        Assert.AreEqual(con.Status, ConnectionStatus.Disconnected);
+
+                        Assert.AreEqual(con.Server.State, ServerState.Unknown);
+
+                        Assert.IsTrue(con.Connect(null));
+
+                        Assert.AreEqual(con.Server.State, ServerState.Online);
+
+                        Assert.AreEqual(con.Status, ConnectionStatus.Connected);
+
+                        Assert.AreEqual("admin", con.Client.OwnerName);
+
+                        FileSpec folderRoot = new FileSpec(new LocalPath(Path.Combine(adminSpace, "MyCode", "...")),
+                            null);
+
+                        // force sync files
+                        Options sFlags = new Options(SyncFilesCmdFlags.Force, -1);
+                        IList<FileSpec> syncedFiles = con.Client.SyncFiles(sFlags, folderRoot);
+
+                        // touch files under Perforce control without opening for
+                        // add, edit or delete
+
+                        System.IO.File.SetAttributes(Path.Combine(adminSpace, "MyCode", "pup.txt"),
+                            System.IO.File.GetAttributes(Path.Combine(adminSpace, "MyCode", "pup.txt"))
+                            & ~FileAttributes.ReadOnly);
+                        System.IO.File.SetAttributes(Path.Combine(adminSpace, "MyCode", "ReadMe.txt"),
+                            System.IO.File.GetAttributes(Path.Combine(adminSpace, "MyCode", "ReadMe.txt"))
+                            & ~FileAttributes.ReadOnly);
+                        System.IO.File.SetAttributes(Path.Combine(adminSpace, "MyCode", "Silly.bmp"),
+                            System.IO.File.GetAttributes(Path.Combine(adminSpace, "MyCode", "Silly.bmp"))
+                            & ~FileAttributes.ReadOnly);
+
+                        // edit a file
+                        var lines = System.IO.File.ReadAllLines(Path.Combine(adminSpace, "MyCode", "pup.txt"));
+                        lines[0] = "some value";
+                        System.IO.File.WriteAllLines(Path.Combine(adminSpace, "MyCode", "pup.txt"), lines);
+
+                        // do nothing with ReadMe.txt
+
+                        // delete a file
+                        System.IO.File.Delete(Path.Combine(adminSpace, "MyCode", "Silly.bmp"));
+
+                        // create a file
+                        System.IO.File.Create(Path.Combine(adminSpace, "MyCode", "new.txt")).Close();
+
+                        // status check for all added files
+                        sFlags = new Options(ReconcileFilesCmdFlags.NotControlled, -1);
+                        IList<FileSpec> rFiles = con.Client.ReconcileStatus(sFlags, folderRoot);
+                        Assert.AreEqual(1, rFiles.Count);
+
+                        // status check for all edited files
+                        sFlags = new Options(ReconcileFilesCmdFlags.ModifiedOutside, -1);
+                        rFiles = con.Client.ReconcileStatus(sFlags, folderRoot);
+                        Assert.AreEqual(1, rFiles.Count);
+
+                        // status check for all deleted files
+                        sFlags = new Options(ReconcileFilesCmdFlags.DeletedLocally, -1);
+                        rFiles = con.Client.ReconcileStatus(sFlags, folderRoot);
+                        Assert.AreEqual(1, rFiles.Count);
+
+                        // status check for all files
+                        sFlags = new Options(ReconcileFilesCmdFlags.None, -1);
+                        rFiles = con.Client.ReconcileStatus(sFlags, folderRoot);
+                        Assert.AreEqual(4, rFiles.Count);
+
+                        var events = new ConcurrentBag<string>();
+                        var progress = GetProgressHandler(events);
+                        con.SetProgressHandler(progress);
+
+                        // test reconcile against all files in a directory with no changelist specified
+                        sFlags = new Options(ReconcileFilesCmdFlags.Preview, -1);
+                        rFiles = con.Client.ReconcileFiles(sFlags, folderRoot);
+
+                        Assert.IsNotNull(rFiles);
+                        Assert.AreEqual(3, rFiles.Count);
+                        Assert.IsTrue(events.Count > 0, "Progress events should be reported for ReconcileFiles.");
+
+                        events = new ConcurrentBag<string>();
+                        progress = GetProgressHandler(events);
+                        con.SetProgressHandler(progress);
+
+                        sFlags = new Options(ReconcileFilesCmdFlags.None, -1);
+                        rFiles = con.Client.ReconcileFiles(sFlags, folderRoot);
+
+                        Assert.IsTrue(events.Count > 0, "Progress events should be reported for ReconcileFiles.");
+
+                        sFlags = new Options(GetFileMetadataCmdFlags.None, null, null, 0,
+                            null, null, null);
+                        syncedFiles = new List<FileSpec>();
+                        syncedFiles.Add(folderRoot);
+
+                        // get the filemetadata to confirm reconcile opened the
+                        // modified files with the correct action
+                        IList<FileMetaData> fmd = rep.GetFileMetaData(syncedFiles, sFlags);
+                        Assert.IsNotNull(fmd);
+                        Assert.AreEqual(5, fmd.Count);
+                        Assert.AreEqual(fmd[0].Action, FileAction.Add);
+                        Assert.AreEqual(fmd[1].Action, FileAction.Add);
+                        Assert.AreEqual(fmd[2].Action, FileAction.Edit);
+                        Assert.AreEqual(fmd[3].Action, FileAction.None);
+                        Assert.AreEqual(fmd[4].Action, FileAction.Delete);
+
+                        // status with -A, which should return null since all
+                        // files in this directory have been reconciled and
+                        // p4 status -A == p4 reconcile -e -a -d
+                        sFlags = new Options(ReconcileFilesCmdFlags.NotOpened, -1);
+                        rFiles = con.Client.ReconcileStatus(sFlags, folderRoot);
+                        Assert.IsNull(rFiles);
+                    }
+                }
+                finally
+                {
+                    // delete created file
+                    System.IO.File.Delete(Path.Combine(adminSpace, "MyCode", "new.txt"));
+
+                    // set untouched file back to read only
+                    System.IO.File.SetAttributes(Path.Combine(adminSpace, "MyCode", "ReadMe.txt"),
+                        FileAttributes.ReadOnly);
+
+                    Utilities.RemoveTestServer(p4d, TestDir);
+                    p4d?.Dispose();
+                    rep?.Dispose();
+                }
+                cptype = Utilities.CheckpointType.U;
+            }
+        }
+
+        /// <summary>
         ///A test for ReconcileFiles with a renamed file
         ///</summary>
         [TestMethod()]
@@ -4105,6 +4530,102 @@ namespace p4api.net.unit.test
         }
 
         /// <summary>
+        /// A test for ShelveFiles for progress handler
+        /// </summary>
+        [TestMethod()]
+        public void ShelveFilesWithProgressTest()
+        {
+            string uri = configuration.ServerPort;
+            string user = "admin";
+            string pass = string.Empty;
+            string ws_client = "admin_space";
+
+            for (int i = 0; i < 1; i++) // run once for ascii, once for unicode
+            {
+                Utilities.CheckpointType cptype = (Utilities.CheckpointType) i;
+                Process p4d = null;
+                Repository rep = null;
+                try
+                {
+                    p4d = Utilities.DeployP4TestServer(TestDir, 2, cptype);
+                    Assert.IsNotNull(p4d, "Setup Failure");
+
+                    Server server = new Server(new ServerAddress(uri));
+                    rep = new Repository(server);
+                    
+                    Utilities.SetClientRoot(rep, TestDir, cptype, ws_client);
+
+                    using (Connection con = rep.Connection)
+                    {
+                        con.UserName = user;
+                        con.Client = new Client();
+                        con.Client.Name = ws_client;
+                        Assert.AreEqual(con.Status, ConnectionStatus.Disconnected);
+
+                        Assert.AreEqual(con.Server.State, ServerState.Unknown);
+
+                        Assert.IsTrue(con.Connect(null));
+
+                        Assert.AreEqual(con.Server.State, ServerState.Online);
+
+                        Assert.AreEqual(con.Status, ConnectionStatus.Connected);
+
+                        Assert.AreEqual("admin", con.Client.OwnerName);
+
+                        var events = new ConcurrentBag<string>();
+                        var progress = GetProgressHandler(events);
+                        con.SetProgressHandler(progress);
+
+                        Changelist change = new Changelist();
+                        change.Description = "On the fly built change list";
+                        FileMetaData file = new FileMetaData();
+                        file.DepotPath = new DepotPath("//depot/TestData/Letters.txt");
+                        change.Files.Add(file);
+
+                        Options sFlags = new Options(
+                            ShelveFilesCmdFlags.None,
+                            change,
+                            -1
+                        );
+
+                        IList<FileSpec> rFiles = con.Client.ShelveFiles(sFlags);
+
+                        Assert.IsNotNull(rFiles);
+                        Assert.AreEqual(1, rFiles.Count);
+                        Assert.IsTrue(events.Count > 0, "Progress events should be reported for ShelveFiles.");
+
+                        events = new ConcurrentBag<string>();
+                        progress = GetProgressHandler(events);
+                        con.SetProgressHandler(progress);
+
+                        FileSpec fromFile = new FileSpec(new DepotPath("//depot/TestData/Numbers.txt"), null);
+                        Options ops = new Options(9, null);
+                        rFiles = con.Client.ReopenFiles(ops, fromFile);
+                        Assert.AreEqual(1, rFiles.Count);
+
+                        sFlags = new Options(
+                            ShelveFilesCmdFlags.None,
+                            null,
+                            9 // created by last shelve command
+                        );
+                        rFiles = con.Client.ShelveFiles(sFlags, fromFile);
+
+                        Assert.IsNotNull(rFiles);
+                        Assert.AreEqual(1, rFiles.Count);
+                        Assert.IsTrue(events.Count > 0, "Progress events should be reported for ShelveFiles.");
+
+                    }
+                }
+                finally
+                {
+                    Utilities.RemoveTestServer(p4d, TestDir);
+                    p4d?.Dispose();
+                    rep?.Dispose();
+                }
+            }
+        }
+
+        /// <summary>
         ///A test for ShelveFiles with new options
         ///</summary>
         [TestMethod()]
@@ -4737,6 +5258,230 @@ namespace p4api.net.unit.test
             }
         }
 
+        /// <summary>
+        /// A test for SyncFiles with progress handler
+        /// </summary>
+        [TestMethod()]
+        public void SyncFilesWithProgressTest()
+        {
+            Utilities.CheckpointType cptype = Utilities.CheckpointType.A;
+
+            string uri = configuration.ServerPort;
+            string user = "Alex";
+            string pass = string.Empty;
+            string ws_client = "alex_space";
+
+            for (int i = 0; i < 1; i++) // run once for ascii, once for unicode
+            {
+                Process p4d = null;
+                Repository rep = null;
+                try
+                {
+                    p4d = Utilities.DeployP4TestServer(TestDir, 8, cptype);
+                    Assert.IsNotNull(p4d, "Setup Failure");
+
+                    Server server = new Server(new ServerAddress(uri));
+                    rep = new Repository(server);
+
+                    Utilities.SetClientRoot(rep, TestDir, cptype, ws_client, false);
+
+                    using (Connection con = rep.Connection)
+                    {
+                        con.UserName = user;
+                        con.Client = new Client();
+                        con.Client.Name = ws_client;
+                        Assert.AreEqual(con.Status, ConnectionStatus.Disconnected);
+
+                        Assert.AreEqual(con.Server.State, ServerState.Unknown);
+
+                        Assert.IsTrue(con.Connect(null));
+
+                        Assert.AreEqual(con.Server.State, ServerState.Online);
+
+                        Assert.AreEqual(con.Status, ConnectionStatus.Connected);
+
+                        Assert.AreEqual("Alex", con.Client.OwnerName);
+
+                        FileSpec fromFile = new FileSpec(new DepotPath("//depot/..."), null);
+
+                        Options sFlags = new Options(
+                            SyncFilesCmdFlags.Preview,
+                            100
+                        );
+
+                        IList<FileSpec> rFiles = con.Client.SyncFiles(sFlags, fromFile);
+
+                        Assert.IsNotNull(rFiles);
+                        Assert.AreEqual(6, rFiles.Count);
+                        //Assert.IsTrue(events.Count > 0, "Progress events should be reported for SyncFiles.");
+                        
+                        var events = new ConcurrentBag<string>();
+                        var progress  = GetProgressHandler(events);
+                        con.SetProgressHandler(progress);
+
+                        fromFile = new FileSpec(new DepotPath("//depot/..."), null);
+
+                        sFlags = new Options(
+                            SyncFilesCmdFlags.Quiet,
+                            100
+                        );
+
+                        rFiles = con.Client.SyncFiles(sFlags, fromFile);
+
+                        Assert.IsNotNull(rFiles);
+                        Assert.IsTrue(events.Count > 0, "Progress events should be reported for SyncFiles (force).");
+
+                    }
+                }
+                finally
+                {
+                    Utilities.RemoveTestServer(p4d, TestDir);
+                    p4d?.Dispose();
+                    rep?.Dispose();
+                }
+                cptype = Utilities.CheckpointType.U;
+            }
+        }
+        
+        /// <summary>
+        /// A test for Parallel sync ServerOnly with ksynctime option for ASCII.
+        /// </summary>
+        [TestMethod()]
+        public void ParallelSyncFilesWithProgressTestA()
+        {
+            ParallelSyncFilesWithProgressTest(Utilities.CheckpointType.A);
+        }
+
+        /// <summary>
+        /// A test for Parallel Sync
+        /// </summary>
+        [TestMethod()]
+        public void ParallelSyncFilesWithProgressTestU()
+        {
+            ParallelSyncFilesWithProgressTest(Utilities.CheckpointType.U);
+        }
+
+        public void ParallelSyncFilesWithProgressTest(Utilities.CheckpointType cptype)
+        {
+            string uri = configuration.ServerPort;
+            string user = "Alex";
+            string pass = string.Empty;
+            string ws_client = "alex_space";
+
+            int fileCount = 500;  // remember that this is an unlicensed server
+
+            Process p4d = null;
+            Repository rep = null;
+
+            try
+            {
+#if ! _WINDOWS
+                // Avoid something bad going on with GetCharSet()
+                if (cptype == Utilities.CheckpointType.U)
+                    P4Server.Update("P4CHARSET", "utf8");
+#endif 
+                p4d = Utilities.DeployP4TestServer(TestDir, 8, cptype);
+                Assert.IsNotNull(p4d, "Setup Failure");
+
+                Server server = new Server(new ServerAddress(uri));
+                rep = new Repository(server);
+
+                string clientDir = Path.Combine(Utilities.TestClientRoot(TestDir, cptype), ws_client);
+                string syncFilesDir = Path.Combine(clientDir, "parallel");
+                FileSpec parallelFileSpec = FileSpec.ClientSpec(Path.Combine(syncFilesDir, "..."));
+
+                var parallelFileSpecArray = new FileSpec[] { parallelFileSpec };
+
+                FileSpec parallelFileSpecZero = FileSpec.ClientSpec(Path.Combine(syncFilesDir, "..."), VersionSpec.None);
+                Client c;
+
+                // Create / Update client 
+                using (Connection con1 = rep.Connection)
+                {
+                    con1.UserName = "admin";
+                    con1.Connect(null);
+
+                    c = rep.GetClient(ws_client, null);
+                    c.Root = clientDir;
+                    c.OwnerName = user;
+                    c.ViewMap = new ViewMap(new string[]
+                    {
+                       "	//depot/parallel/... //alex_space/parallel/..."
+                    });
+                    rep.UpdateClient(c);
+                    rep.Connection.Server.SetState(ServerState.Unknown);
+                }
+
+                using (Connection con = rep.Connection)
+                {
+                    con.UserName = user;
+                    con.Client = c;
+
+                    Assert.AreEqual(con.Status, ConnectionStatus.Disconnected);
+
+                    Assert.AreEqual(con.Server.State, ServerState.Unknown);
+
+                    Assert.IsTrue(con.Connect(null));
+
+                    Assert.AreEqual(con.Server.State, ServerState.Online);
+
+                    Assert.AreEqual(con.Status, ConnectionStatus.Connected);
+
+                    Assert.AreEqual("Alex", con.Client.OwnerName);
+
+                    // Set up a bunch of files in the workspace
+                    PrepSyncFiles(syncFilesDir);
+                    CreateSyncFiles(syncFilesDir, fileCount);
+
+                    // Add them to the server
+                    Options addFlags = new Options(AddFilesCmdFlags.None, -1, null);
+                    IList<FileSpec> addFiles = con.Client.AddFiles(addFlags, parallelFileSpecArray);
+
+                    var events = new ConcurrentBag<string>();
+                    var progress = GetProgressHandler(events);
+                    con.SetProgressHandler(progress);
+                    // Submit them
+                    Options submitFlags = new Options(SubmitFilesCmdFlags.None, -1, null, "initial submit test files", null);
+                    con.Client.SubmitFiles(submitFlags, parallelFileSpec);
+
+                    Assert.IsTrue(events.Count > 0, "Progress events should be reported for SubmitFiles.");
+
+                    events = new ConcurrentBag<string>();
+                    progress = GetProgressHandler(events);
+                    con.SetProgressHandler(progress);
+
+                    // Now Sync them all to NONE
+                    Options syncFlags = new Options(SyncFilesCmdFlags.Quiet);
+                    IList<FileSpec> syncFiles = con.Client.SyncFiles(syncFlags, parallelFileSpecZero);
+
+                    bool setRv = P4ConfigureSetParallel(con, 4);
+                    Assert.IsTrue(setRv);
+                    Assert.IsTrue(events.Count > 0, "Progress events should be reported for SyncFiles.");
+
+                    events = new ConcurrentBag<string>();
+                    progress = GetProgressHandler(events);
+                    con.SetProgressHandler(progress);
+
+                    // Finally, we Sync them again using parallel.
+                    Options pFlags = new SyncFilesCmdOptions(SyncFilesCmdFlags.Force, 0, 4, 10, 0, 100);
+                    IList<FileSpec> pFiles = con.Client.SyncFiles(pFlags, parallelFileSpecArray);
+
+                    Assert.IsNotNull(pFiles);
+                    Assert.IsTrue(events.Count > 0, "Progress events should be reported for SyncFiles.");
+                    Assert.AreEqual(fileCount, pFiles.Count);
+                }
+            }
+            catch (P4Exception ex)
+            {
+                logger.Error("ParallelSyncFilesTest " + ex.Message, ex);
+            }
+            finally
+            {
+                Utilities.RemoveTestServer(p4d, TestDir);
+                p4d?.Dispose();
+                rep?.Dispose();
+            }
+        }
         /// <summary>
         /// Create random byte array for file contents
         /// </summary>
@@ -5392,6 +6137,135 @@ namespace p4api.net.unit.test
 		}
 
 		/// <summary>
+        /// A test for UnshelveFiles for progress handler
+        /// </summary>
+        [TestMethod()]
+        public void UnshelveFilesWithProgressHandlerTest()
+        {
+            string uri = configuration.ServerPort;
+            string user = "admin";
+            string pass = string.Empty;
+            string ws_client = "admin_space";
+
+            for (int i = 0; i < 1; i++) // run once for ascii, once for unicode
+            {
+                var cptype = (Utilities.CheckpointType)i;
+                Process p4d = null;
+                Repository rep = null;
+
+                try
+                {
+                    p4d = Utilities.DeployP4TestServer(TestDir, 2, cptype);
+                    Assert.IsNotNull(p4d, "Setup Failure");
+
+                    var clientRoot = Utilities.TestClientRoot(TestDir, cptype);
+                    var adminSpace = Path.Combine(clientRoot, "admin_space");
+                    Directory.CreateDirectory(adminSpace);
+
+                    Server server = new Server(new ServerAddress(uri));
+                    rep = new Repository(server);
+                    Utilities.SetClientRoot(rep, TestDir, cptype, ws_client);
+
+                    using (Connection con = rep.Connection)
+                    {
+                        con.UserName = user;
+                        con.Client = new Client();
+                        con.Client.Name = ws_client;
+                        Assert.AreEqual(con.Status, ConnectionStatus.Disconnected);
+
+                        Assert.AreEqual(con.Server.State, ServerState.Unknown);
+
+                        Assert.IsTrue(con.Connect(null));
+
+                        Assert.AreEqual(con.Server.State, ServerState.Online);
+
+                        Assert.AreEqual(con.Status, ConnectionStatus.Connected);
+
+                        Assert.AreEqual("admin", con.Client.OwnerName);
+
+                        Changelist change = new Changelist();
+                        change.Description = "On the fly built change list";
+                        FileMetaData file = new FileMetaData();
+                        file.DepotPath = new DepotPath("//depot/TestData/Letters.txt");
+                        change.Files.Add(file);
+
+                        var events = new ConcurrentBag<string>();
+                        var progress = GetProgressHandler(events);
+                        con.SetProgressHandler(progress);
+
+                        Options sFlags = new Options(
+                            ShelveFilesCmdFlags.None,
+                            change,
+                            -1
+                        );
+
+                        IList<FileSpec> rFiles = con.Client.ShelveFiles(sFlags);
+
+                        Assert.IsNotNull(rFiles);
+                        Assert.AreEqual(1, rFiles.Count);
+                        Assert.IsTrue(events.Count > 0, "Progress events should be reported for ShelveFiles.");
+
+                        events = new ConcurrentBag<string>();
+                        progress = GetProgressHandler(events);
+                        con.SetProgressHandler(progress);
+
+                        FileSpec fromFile = new FileSpec(new DepotPath("//depot/TestData/Numbers.txt"), null);
+                        Options ops = new Options(9, null);
+                        rFiles = con.Client.ReopenFiles(ops, fromFile);
+                        Assert.AreEqual(1, rFiles.Count);
+
+                        sFlags = new Options(
+                            ShelveFilesCmdFlags.None,
+                            null,
+                            9   // created by last shelve command
+                        );
+                        rFiles = con.Client.ShelveFiles(sFlags, fromFile);
+
+                        Assert.IsNotNull(rFiles);
+                        Assert.AreEqual(1, rFiles.Count);
+                        Assert.IsTrue(events.Count > 0, "Progress events should be reported for ShelveFiles.");
+
+                        events = new ConcurrentBag<string>();
+                        progress = GetProgressHandler(events);
+                        con.SetProgressHandler(progress);
+
+                        FileSpec revertFiles = new FileSpec(new LocalPath(Path.Combine(adminSpace, "TestData", "*")), null);
+                        Options rFlags = new Options(
+                            RevertFilesCmdFlags.None,
+                            9
+                        );
+                        rFiles = con.Client.RevertFiles(rFlags, revertFiles);
+
+                        Options uFlags =
+                            new Options(UnshelveFilesCmdFlags.None, 9, -1);
+
+                        rFiles = con.Client.UnshelveFiles(uFlags, fromFile);
+
+                        Assert.IsNotNull(rFiles);
+                        Assert.AreEqual(1, rFiles.Count);
+                        Assert.IsTrue(events.Count > 0, "Progress events should be reported for UnshelveFiles.");
+
+                        events = new ConcurrentBag<string>();
+                        progress = GetProgressHandler(events);
+                        con.SetProgressHandler(progress);
+
+                        rFiles = con.Client.UnshelveFiles(uFlags);
+
+                        Assert.IsNotNull(rFiles);
+                        Assert.AreEqual(1, rFiles.Count);
+                        Assert.IsTrue(events.Count > 0, "Progress events should be reported for UnshelveFiles.");
+                    }
+                }
+                finally
+                {
+                    Utilities.RemoveTestServer(p4d, TestDir);
+                    p4d?.Dispose();
+                    rep?.Dispose();
+                }
+            }
+        }
+
+        /// <summary>
 		///A test for GetClientFileMappings
 		///</summary>
 		[TestMethod()]

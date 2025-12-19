@@ -1,17 +1,25 @@
 <Project>
-    <ItemGroup Condition=" $([MSBuild]::IsOSPlatform('Windows')) And '$(Platform)' == 'x64' ">
+  <!-- Windows x64 -->
+  <ItemGroup Condition=" '$(RuntimeIdentifier)' == 'win-x64' Or 
+                         ( '$(RuntimeIdentifier)' == '' And '$(Platform)' == 'x64' And $([MSBuild]::IsOSPlatform('Windows')) ) ">
         <None Include="$(MSBuildThisFileDirectory)..\runtimes\win-x64\native\p4bridge.dll">
             <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
             <Link>p4bridge.dll</Link>
         </None>
     </ItemGroup>
-    <ItemGroup Condition=" $([MSBuild]::IsOSPlatform('Windows')) And '$(Platform)' == 'x86' ">
+
+  <!-- Windows x86 -->
+  <ItemGroup Condition=" '$(RuntimeIdentifier)' == 'win-x86' Or 
+                         ( '$(RuntimeIdentifier)' == '' And '$(Platform)' == 'x86' And $([MSBuild]::IsOSPlatform('Windows')) ) ">
         <None Include="$(MSBuildThisFileDirectory)..\runtimes\win-x86\native\p4bridge.dll">
             <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
             <Link>p4bridge.dll</Link>
         </None>
     </ItemGroup>
-    <ItemGroup Condition=" $([MSBuild]::IsOSPlatform('Windows')) And '$(Platform)' == 'AnyCPU' ">
+
+  <!-- Windows AnyCPU (both x64 + x86) -->
+  <ItemGroup Condition=" ( '$(RuntimeIdentifier)' != '' And $(RuntimeIdentifier.StartsWith('win')) And '$(Platform)' == 'AnyCPU' ) Or 
+                          ( '$(RuntimeIdentifier)' == '' And '$(Platform)' == 'AnyCPU' And $([MSBuild]::IsOSPlatform('Windows')) ) ">
         <None Include="$(MSBuildThisFileDirectory)..\runtimes\win-x64\native\p4bridge.dll">
             <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
             <Link>x64\p4bridge.dll</Link>
@@ -21,19 +29,37 @@
             <Link>x86\p4bridge.dll</Link>
         </None>
     </ItemGroup>
-    <ItemGroup Condition=" $([MSBuild]::IsOSPlatform('Linux')) And '$(Platform)' == 'arm64' ">
+
+  <!-- Linux arm64 -->
+  <ItemGroup Condition=" '$(RuntimeIdentifier)' == 'linux-arm64' Or 
+                         ( '$(RuntimeIdentifier)' == '' And $([MSBuild]::IsOSPlatform('Linux')) ) ">
         <None Include="$(MSBuildThisFileDirectory)..\runtimes\linux-arm64\native\libp4bridge.so">
             <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
             <Link>libp4bridge.so</Link>
         </None>
     </ItemGroup>
-  <ItemGroup Condition=" $([MSBuild]::IsOSPlatform('Linux')) And '$(Platform)' == 'x64' ">
+
+  <!-- Linux x64 -->
+  <ItemGroup Condition=" '$(RuntimeIdentifier)' == 'linux-x64' Or 
+                         ( '$(RuntimeIdentifier)' == '' And $([MSBuild]::IsOSPlatform('Linux')) ) ">
     <None Include="$(MSBuildThisFileDirectory)..\runtimes\linux-x64\native\libp4bridge.so">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <Link>libp4bridge.so</Link>
     </None>
   </ItemGroup>
-    <ItemGroup Condition=" $([MSBuild]::IsOSPlatform('OSX')) ">
+
+  <!-- macOS x64 -->
+  <ItemGroup Condition=" '$(RuntimeIdentifier)' == 'osx-x64' Or 
+                         ( '$(RuntimeIdentifier)' == '' And $([MSBuild]::IsOSPlatform('OSX')) ) ">
+    <None Include="$(MSBuildThisFileDirectory)..\runtimes\osx-u\native\libp4bridge.dylib">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Link>libp4bridge.dylib</Link>
+    </None>
+  </ItemGroup>
+
+  <!-- macOS arm64 -->
+  <ItemGroup Condition=" '$(RuntimeIdentifier)' == 'osx-arm64' Or 
+                         ( '$(RuntimeIdentifier)' == '' And $([MSBuild]::IsOSPlatform('OSX')) ) ">
         <None Include="$(MSBuildThisFileDirectory)..\runtimes\osx-u\native\libp4bridge.dylib">
             <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
             <Link>libp4bridge.dylib</Link>

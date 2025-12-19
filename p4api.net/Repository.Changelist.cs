@@ -67,15 +67,19 @@ namespace Perforce.P4
 				// If this a new change that was saved, we need  to parse out the new changelist Id
 				if (change.Id == -1)
 				{
-					string[] words = results.InfoOutput[0].Message.Split(' ');
-
 					int newId = -1;
-					if (int.TryParse(words[1], out newId))
+						foreach (var info in results.InfoOutput)
+						{
+							// Splitting the message into words
+							var words = info.Message.Split(' ');
+							// Looking for the pattern "Change <number>"
+							if (words.Length >= 1 && words[0] == "Change" && int.TryParse(words[1], out newId))
 					{
 						Changelist newChange = GetChangelist(newId);
 						return newChange;
 					}
 				}
+					}
 
 				return GetChangelist(change.Id);
 			}
