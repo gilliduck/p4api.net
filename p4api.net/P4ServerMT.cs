@@ -57,6 +57,7 @@ namespace Perforce.P4
         private string cwd;
         private string trustFlag;
         private string fingerprint;
+        private Func<IP4Server> _p4ServerFactory;
 
         /// <summary>
         /// Create a handler for later creation of P4Server using the provided parameters
@@ -112,6 +113,20 @@ namespace Perforce.P4
         public P4ServerMT(string cwd)
         {
             this.cwd = cwd;
+            _programName = "";
+            _programVersion = "";
+            _characterSet = "";
+            _runCmdTimeout = TimeSpan.Zero;
+        }
+
+        /// <summary>
+        /// Create a handler for later creation of P4Server instances using the provided factory.
+        /// This constructor is used for dependency injection of mock P4Server implementations during testing.
+        /// </summary>
+        /// <param name="p4ServerFactory">Factory delegate that creates IP4Server instances for mocking or custom implementations.</param>
+        public P4ServerMT(Func<IP4Server> p4ServerFactory)
+        {
+            _p4ServerFactory = p4ServerFactory;
             _programName = "";
             _programVersion = "";
             _characterSet = "";
@@ -225,13 +240,23 @@ namespace Perforce.P4
                 {
                     return mapTIDtoServer[threadId];
                 }
-                // only call the fingerprint constructor if we got configured with a fingerprint
-                // otherwise it will not throw the correct "you need to trust this" exception
-                // (which seems wrong, both methods should operate similarly))
-                P4Server p4server = !string.IsNullOrEmpty(fingerprint) || 
-                                    !string.IsNullOrEmpty(trustFlag) ?
-                    new P4Server(server, user, pass, ws_client, cwd, trustFlag, fingerprint) :
-                    new P4Server(server, user, pass, ws_client, cwd);
+                
+                P4Server p4server;
+                if (_p4ServerFactory != null)
+                {
+                    // Use the factory to create the server instance (for mocking or custom implementations)
+                    p4server = _p4ServerFactory() as P4Server;
+                }
+                else
+                {
+                    // only call the fingerprint constructor if we got configured with a fingerprint
+                    // otherwise it will not throw the correct "you need to trust this" exception
+                    // (which seems wrong, both methods should operate similarly))
+                    p4server = !string.IsNullOrEmpty(fingerprint) || 
+                                        !string.IsNullOrEmpty(trustFlag) ?
+                        new P4Server(server, user, pass, ws_client, cwd, trustFlag, fingerprint) :
+                        new P4Server(server, user, pass, ws_client, cwd);
+                }
                 p4server.SetThreadOwner(threadId);
                 mapTIDtoServer[threadId] = p4server;
                 

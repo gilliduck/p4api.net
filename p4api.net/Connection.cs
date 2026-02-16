@@ -67,6 +67,7 @@ namespace Perforce.P4
     {
         private String _cachedCharacterSet = "none";
         private bool multithreaded { get; set; }
+        private Func<IP4Server> _p4ServerFactory;
 
         /// <summary>
         /// Construct a Connection given a Server
@@ -74,9 +75,24 @@ namespace Perforce.P4
         /// <param name="server">server to connect to</param>
         /// <param name="_multithreaded">Use a multithreaded connection</param>
         public Connection(Server server, bool _multithreaded = true)
+            : this(server, _multithreaded, null)
+        {
+        }
+
+        /// <summary>
+        /// Construct a Connection given a Server with optional P4Server factory for testing
+        /// </summary>
+        /// <param name="server">server to connect to</param>
+        /// <param name="_multithreaded">Use a multithreaded connection</param>
+        /// <param name="p4ServerFactory">Optional factory delegate to create IP4Server instances for mocking.
+        /// When provided, this factory will be used to create P4Server instances instead of
+        /// instantiating P4Server directly. This enables consuming projects to mock the
+        /// P4Server and test their code without requiring a real Perforce server.</param>
+        public Connection(Server server, bool _multithreaded = true, Func<IP4Server> p4ServerFactory = null)
         {
             Server = server;
             multithreaded = _multithreaded;
+            _p4ServerFactory = p4ServerFactory;
         }
 
         /// <summary>
@@ -382,10 +398,22 @@ namespace Perforce.P4
                     {
                         _cwd = options["cwd"];
                         if (multithreaded)
-                            _p4serverMT = new P4ServerMT(_cwd);
+                        {
+                            if (_p4ServerFactory != null)
+                                _p4serverMT = new P4ServerMT(_p4ServerFactory);
+                            else
+                                _p4serverMT = new P4ServerMT(_cwd);
+                        }
                         else
                         {
-                            _p4serverST = new P4Server(_cwd);
+                            if (_p4ServerFactory != null)
+                            {
+                                _p4serverST = _p4ServerFactory() as P4Server;
+                            }
+                            else
+                            {
+                                _p4serverST = new P4Server(_cwd);
+                            }
                             // allow the developer to manage the threading problems on their own
                             _p4serverST.SetThreadOwner(-1);
                         }
@@ -404,13 +432,23 @@ namespace Perforce.P4
                         _cwd = null;
                         if (multithreaded)
                         {
-                            _p4serverMT = new P4ServerMT(Server.Address.Uri, UserName, password,
-                                clientName, _cwd, null, null);
+                            if (_p4ServerFactory != null)
+                                _p4serverMT = new P4ServerMT(_p4ServerFactory);
+                            else
+                                _p4serverMT = new P4ServerMT(Server.Address.Uri, UserName, password,
+                                    clientName, _cwd, null, null);
                         }
                         else
                         {
-                            _p4serverST = new P4Server(Server.Address.Uri, UserName, password,
-                                clientName, _cwd);
+                            if (_p4ServerFactory != null)
+                            {
+                                _p4serverST = _p4ServerFactory() as P4Server;
+                            }
+                            else
+                            {
+                                _p4serverST = new P4Server(Server.Address.Uri, UserName, password,
+                                    clientName, _cwd);
+                            }
                             // allow the developer to manage the threading problems on their own
                             _p4serverST.SetThreadOwner(-1);
                         }
@@ -638,12 +676,22 @@ namespace Perforce.P4
                 {
                     if (multithreaded)
                     {
-                        _p4serverMT = new P4ServerMT(Server.Address.Uri, UserName, password, clientName, _cwd,
-                        trustFlag, fingerprint);
+                        if (_p4ServerFactory != null)
+                            _p4serverMT = new P4ServerMT(_p4ServerFactory);
+                        else
+                            _p4serverMT = new P4ServerMT(Server.Address.Uri, UserName, password, clientName, _cwd,
+                            trustFlag, fingerprint);
                         _p4serverMT.RunCmdTimeout = _commandTimeout;
                     } else {
-                        _p4serverST = new P4Server(Server.Address.Uri, UserName, password, clientName, _cwd, trustFlag,
-                            fingerprint);
+                        if (_p4ServerFactory != null)
+                        {
+                            _p4serverST = _p4ServerFactory() as P4Server;
+                        }
+                        else
+                        {
+                            _p4serverST = new P4Server(Server.Address.Uri, UserName, password, clientName, _cwd, trustFlag,
+                                fingerprint);
+                        }
                         // allow the developer to manage the threading problems on their own
                         _p4serverST.SetThreadOwner(-1);
                         _p4serverST.RunCmdTimeout = _commandTimeout;

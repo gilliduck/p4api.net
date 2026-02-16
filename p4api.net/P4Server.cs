@@ -79,7 +79,7 @@ namespace Perforce.P4
     /// DLL. It wraps the calls exported by the DLL and transforms the data
     /// types exported by the DLL as native C#.NET data types.
     /// </summary>
-    public partial class P4Server : IDisposable
+    public partial class P4Server : IP4Server, IDisposable
     {
         public IKeepAlive KeepAlive { get; set; }
 
