@@ -1,10 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>netstandard2.0;net462;net80</TargetFrameworks>
+    <TargetFrameworks>net80</TargetFrameworks>
     <IsTestProject>true</IsTestProject>
-    <SignAssembly>true</SignAssembly>
-    <AssemblyOriginatorKeyFile>..\p4api.net\MyKey.snk</AssemblyOriginatorKeyFile>
     <LangVersion>latest</LangVersion>
   </PropertyGroup>
 

@@ -1597,7 +1597,7 @@ namespace Perforce.P4
         /// <summary>
         /// Delegate used to process prompts for input from the server.
         /// </summary>
-        public PromptHandlerDelegate PromptHandler;
+        public PromptHandlerDelegate PromptHandler { get; set; }
 
         /// <summary>
         /// Delegate definition for the parallel operations callback.
@@ -1619,7 +1619,7 @@ namespace Perforce.P4
         /// <summary>
         /// Delegate used to provide a custom handler for Resolve callbacks passing a ClientMerge object from the p4api.
         /// </summary>
-        public ResolveHandlerDelegate ResolveHandler;
+        public ResolveHandlerDelegate ResolveHandler { get; set; }
 
         /// <summary>
         /// Delegate used to provide a custom handler for Resolve callbacks passing a ClientResolve object from the p4api.
@@ -1630,7 +1630,7 @@ namespace Perforce.P4
         /// <summary>
         /// Delegate used to provide a custom handler for Resolve callbacks passing a ClientResolve object from the p4api.
         /// </summary>
-        public ResolveAHandlerDelegate ResolveAHandler;
+        public ResolveAHandlerDelegate ResolveAHandler { get; set; }
 
         /// <summary>
         /// The parameters used by the connection
