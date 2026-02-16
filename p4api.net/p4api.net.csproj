@@ -157,8 +157,8 @@
     <Folder Include="Properties" />
   </ItemGroup>
   <PropertyGroup>
-    <SignAssembly>true</SignAssembly>
-    <AssemblyOriginatorKeyFile>MyKey.snk</AssemblyOriginatorKeyFile>
+    <SignAssembly>false</SignAssembly>
+    <!-- <AssemblyOriginatorKeyFile>MyKey.snk</AssemblyOriginatorKeyFile> -->
   </PropertyGroup>
   <PropertyGroup>
     <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
