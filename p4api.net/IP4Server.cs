@@ -28,7 +28,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 /*******************************************************************************
  * Name		: IP4Server.cs
  *
- * Author	: GitHub Copilot
+ * Author	: Dustyn Gilliland (Electronic Arts, dgilliland@ea.com)
  *
  * Description	: Interface for P4Server to enable mocking and dependency injection
  *                for consuming projects performing unit tests without a real P4 server.
