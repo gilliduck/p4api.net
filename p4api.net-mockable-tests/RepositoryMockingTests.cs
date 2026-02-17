@@ -25,7 +25,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 *******************************************************************************/
 
-using System;
 using Moq;
 using Xunit;
 
@@ -57,23 +56,25 @@ namespace Perforce.P4.Tests.Mocking
             )).Returns(true);
 
             var usersOutput = new TaggedObjectList();
-            var standardUser = new TaggedObject();
-            standardUser["User"] = "jsmith";
-            standardUser["Type"] = "standard";
+            var standardUser = new TaggedObject
+            {
+                ["User"] = "jsmith",
+                ["Type"] = "standard"
+            };
             usersOutput.Add(standardUser);
 
-            var serviceUser = new TaggedObject();
-            serviceUser["User"] = "svc_account";
-            serviceUser["Type"] = "service";
+            var serviceUser = new TaggedObject
+            {
+                ["User"] = "svc_account",
+                ["Type"] = "service"
+            };
             usersOutput.Add(serviceUser);
 
             mockServer.Setup(s => s.GetTaggedOutput(It.IsAny<uint>()))
                 .Returns(usersOutput);
 
-            var connection = CreateConnectionWithMock(mockServer);
-
             // Act - Example: Get all users and filter for standard users
-            mockServer.Object.RunCommand("users", 0, false, Array.Empty<string>(), 0);
+            mockServer.Object.RunCommand("users", 0, false, [], 0);
             var allUsers = mockServer.Object.GetTaggedOutput(0);
 
             var standardUserCount = 0;
@@ -101,25 +102,27 @@ namespace Perforce.P4.Tests.Mocking
 
             var taggedOutput = new TaggedObjectList();
 
-            var branch1 = new TaggedObject();
-            branch1["Branch"] = "main-dev";
-            branch1["Owner"] = "jsmith";
-            branch1["Description"] = "Main development branch";
+            var branch1 = new TaggedObject
+            {
+                ["Branch"] = "main-dev",
+                ["Owner"] = "jsmith",
+                ["Description"] = "Main development branch"
+            };
             taggedOutput.Add(branch1);
 
-            var branch2 = new TaggedObject();
-            branch2["Branch"] = "release-v2";
-            branch2["Owner"] = "mwilson";
-            branch2["Description"] = "Version 2.0 release branch";
+            var branch2 = new TaggedObject
+            {
+                ["Branch"] = "release-v2",
+                ["Owner"] = "mwilson",
+                ["Description"] = "Version 2.0 release branch"
+            };
             taggedOutput.Add(branch2);
 
             mockServer.Setup(s => s.GetTaggedOutput(It.IsAny<uint>()))
                 .Returns(taggedOutput);
 
-            var connection = CreateConnectionWithMock(mockServer);
-
             // Act
-            mockServer.Object.RunCommand("branches", 0, false, Array.Empty<string>(), 0);
+            mockServer.Object.RunCommand("branches", 0, false, [], 0);
             var branches = mockServer.Object.GetTaggedOutput(0);
 
             // Assert
@@ -144,27 +147,29 @@ namespace Perforce.P4.Tests.Mocking
 
             var taggedOutput = new TaggedObjectList();
 
-            var client1 = new TaggedObject();
-            client1["client"] = "workspace1";
-            client1["Owner"] = "jsmith";
-            client1["Description"] = "Development workspace";
-            client1["Root"] = "C:\\dev\\project1";
+            var client1 = new TaggedObject
+            {
+                ["client"] = "workspace1",
+                ["Owner"] = "jsmith",
+                ["Description"] = "Development workspace",
+                ["Root"] = "C:\\dev\\project1"
+            };
             taggedOutput.Add(client1);
 
-            var client2 = new TaggedObject();
-            client2["client"] = "workspace2";
-            client2["Owner"] = "mwilson";
-            client2["Description"] = "Testing workspace";
-            client2["Root"] = "C:\\test\\project1";
+            var client2 = new TaggedObject
+            {
+                ["client"] = "workspace2",
+                ["Owner"] = "mwilson",
+                ["Description"] = "Testing workspace",
+                ["Root"] = "C:\\test\\project1"
+            };
             taggedOutput.Add(client2);
 
             mockServer.Setup(s => s.GetTaggedOutput(It.IsAny<uint>()))
                 .Returns(taggedOutput);
 
-            var connection = CreateConnectionWithMock(mockServer);
-
             // Act
-            mockServer.Object.RunCommand("clients", 0, false, Array.Empty<string>(), 0);
+            mockServer.Object.RunCommand("clients", 0, false, [], 0);
             var clients = mockServer.Object.GetTaggedOutput(0);
 
             // Assert
@@ -190,25 +195,27 @@ namespace Perforce.P4.Tests.Mocking
 
             var taggedOutput = new TaggedObjectList();
 
-            var depot1 = new TaggedObject();
-            depot1["name"] = "main";
-            depot1["type"] = "local";
-            depot1["map"] = "main/...";
+            var depot1 = new TaggedObject
+            {
+                ["name"] = "main",
+                ["type"] = "local",
+                ["map"] = "main/..."
+            };
             taggedOutput.Add(depot1);
 
-            var depot2 = new TaggedObject();
-            depot2["name"] = "archive";
-            depot2["type"] = "archive";
-            depot2["map"] = "archive/...";
+            var depot2 = new TaggedObject
+            {
+                ["name"] = "archive",
+                ["type"] = "archive",
+                ["map"] = "archive/..."
+            };
             taggedOutput.Add(depot2);
 
             mockServer.Setup(s => s.GetTaggedOutput(It.IsAny<uint>()))
                 .Returns(taggedOutput);
 
-            var connection = CreateConnectionWithMock(mockServer);
-
             // Act
-            mockServer.Object.RunCommand("depots", 0, false, Array.Empty<string>(), 0);
+            mockServer.Object.RunCommand("depots", 0, false, [], 0);
             var depots = mockServer.Object.GetTaggedOutput(0);
 
             // Assert
@@ -233,21 +240,21 @@ namespace Perforce.P4.Tests.Mocking
             )).Returns(true);
 
             var taggedOutput = new TaggedObjectList();
-            var userObj = new TaggedObject();
-            userObj["User"] = "jsmith";
-            userObj["Email"] = "john.smith@example.com";
-            userObj["FullName"] = "John Smith";
-            userObj["Type"] = "standard";
-            userObj["Access"] = "2025-01-15";
+            var userObj = new TaggedObject
+            {
+                ["User"] = "jsmith",
+                ["Email"] = "john.smith@example.com",
+                ["FullName"] = "John Smith",
+                ["Type"] = "standard",
+                ["Access"] = "2025-01-15"
+            };
             taggedOutput.Add(userObj);
 
             mockServer.Setup(s => s.GetTaggedOutput(It.IsAny<uint>()))
                 .Returns(taggedOutput);
 
-            var connection = CreateConnectionWithMock(mockServer);
-
             // Act
-            mockServer.Object.RunCommand("user", 0, false, new[] { "jsmith" }, 0);
+            mockServer.Object.RunCommand("user", 0, false, ["jsmith"], 0);
             var user = mockServer.Object.GetTaggedOutput(0);
 
             // Assert
@@ -273,22 +280,24 @@ namespace Perforce.P4.Tests.Mocking
             )).Returns(true);
 
             var taggedOutput = new TaggedObjectList();
-            var user1 = new TaggedObject();
-            user1["User"] = "jsmith";
-            user1["Email"] = "john.smith@example.com";
-            user1["FullName"] = "John Smith";
+            var user1 = new TaggedObject
+            {
+                ["User"] = "jsmith",
+                ["Email"] = "john.smith@example.com",
+                ["FullName"] = "John Smith"
+            };
             taggedOutput.Add(user1);
 
-            var user2 = new TaggedObject();
-            user2["User"] = "mwilson";
-            user2["Email"] = "mary.wilson@example.com";
-            user2["FullName"] = "Mary Wilson";
+            var user2 = new TaggedObject
+            {
+                ["User"] = "mwilson",
+                ["Email"] = "mary.wilson@example.com",
+                ["FullName"] = "Mary Wilson"
+            };
             taggedOutput.Add(user2);
 
             mockServer.Setup(s => s.GetTaggedOutput(It.IsAny<uint>()))
                 .Returns(taggedOutput);
-
-            var connection = CreateConnectionWithMock(mockServer);
 
             // Act - The injected mock receives the calls from Repository via Connection
             // Repository.GetUsers() -> Connection.getP4Server().RunCommand() -> mocked P4Server
@@ -322,26 +331,28 @@ namespace Perforce.P4.Tests.Mocking
 
             // Setup sequential results
             var firstUsersOutput = new TaggedObjectList();
-            var user1 = new TaggedObject();
-            user1["User"] = "user1";
+            var user1 = new TaggedObject
+            {
+                ["User"] = "user1"
+            };
             firstUsersOutput.Add(user1);
 
             var secondUsersOutput = new TaggedObjectList();
-            var user2 = new TaggedObject();
-            user2["User"] = "user2";
+            var user2 = new TaggedObject
+            {
+                ["User"] = "user2"
+            };
             secondUsersOutput.Add(user2);
 
             mockServer.SetupSequence(s => s.GetTaggedOutput(It.IsAny<uint>()))
                 .Returns(firstUsersOutput)
                 .Returns(secondUsersOutput);
 
-            var connection = CreateConnectionWithMock(mockServer);
-
             // Act - Call same command twice, get different results
-            mockServer.Object.RunCommand("users", 0, false, Array.Empty<string>(), 0);
+            mockServer.Object.RunCommand("users", 0, false, [], 0);
             var result1 = mockServer.Object.GetTaggedOutput(0);
 
-            mockServer.Object.RunCommand("users", 1, false, Array.Empty<string>(), 0);
+            mockServer.Object.RunCommand("users", 1, false, [], 0);
             var result2 = mockServer.Object.GetTaggedOutput(1);
 
             // Assert
@@ -351,17 +362,7 @@ namespace Perforce.P4.Tests.Mocking
             Assert.Equal("user2", result2[0]["User"]);
         }
 
-        private Connection CreateConnectionWithMock(Mock<IP4Server> mockServer)
-        {
-            var serverAddress = new ServerAddress("localhost:1666");
-            return new Connection(
-                new Server(serverAddress),
-                false, // single-threaded for testing
-                () => mockServer.Object
-            );
-        }
-
-        private Mock<IP4Server> CreateMockP4Server()
+        private static Mock<IP4Server> CreateMockP4Server()
         {
             var mock = new Mock<IP4Server>();
             mock.Setup(s => s.IsConnected()).Returns(true);
