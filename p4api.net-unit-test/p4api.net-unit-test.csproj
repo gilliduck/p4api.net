@@ -12,9 +12,14 @@
     <FileVersion>2021.2.0.0</FileVersion>
     <NoWarn>$(NoWarn);SYSLIB0006</NoWarn>
   </PropertyGroup>
-  <PropertyGroup>
+  <!-- Strong name signing: MyKey.snk is not included for security reasons (see .gitignore) -->
+  <!-- Temporarily disabled for Debug builds to support local development -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
     <SignAssembly>true</SignAssembly>
     <AssemblyOriginatorKeyFile>MyKey.snk</AssemblyOriginatorKeyFile>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
+    <SignAssembly>false</SignAssembly>
   </PropertyGroup>
   <PropertyGroup Condition="$([MSBuild]::IsOSPlatform('Windows'))">
     <DefineConstants>_WINDOWS</DefineConstants>

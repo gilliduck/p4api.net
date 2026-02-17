@@ -70,16 +70,6 @@ namespace Perforce.P4
         private Func<IP4Server> _p4ServerFactory;
 
         /// <summary>
-        /// Construct a Connection given a Server
-        /// </summary>
-        /// <param name="server">server to connect to</param>
-        /// <param name="_multithreaded">Use a multithreaded connection</param>
-        public Connection(Server server, bool _multithreaded = true)
-            : this(server, _multithreaded, null)
-        {
-        }
-
-        /// <summary>
         /// Construct a Connection given a Server with optional P4Server factory for testing
         /// </summary>
         /// <param name="server">server to connect to</param>
