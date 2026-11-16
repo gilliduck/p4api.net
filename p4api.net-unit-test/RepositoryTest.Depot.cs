@@ -68,60 +68,6 @@ View:
 	//depot/dev/xp1/... //XP1_usr/depot/dev/xp1/...
 ";
 
-        private static string partitionedClientSpec =
-@"# A Perforce Client Specification.
-#
-#  Client:      The client name.
-#  Update:      The date this specification was last modified.
-#  Access:      The date this client was last used in any way.
-#  Owner:       The user who created this client.
-#  Host:        If set, restricts access to the named host.
-#  Description: A short description of the client (optional).
-#  Root:        The base directory of the client workspace.
-#  AltRoots:    Up to two alternate client workspace roots.
-#  Options:     Client options:
-#                      [no]allwrite [no]clobber [no]compress
-#                      [un]locked [no]modtime [no]rmdir
-#  SubmitOptions:
-#                      submitunchanged/submitunchanged+reopen
-#                      revertunchanged/revertunchanged+reopen
-#                      leaveunchanged/leaveunchanged+reopen
-#  LineEnd:     Text file line endings on client: local/unix/mac/win/share.
-#  View:        Lines to map depot files into the client workspace.
-#
-# Use 'p4 help client' to see more about client views and options.
-
-Client:	XP1_usr
-
-Update:	2010/11/29 15:30:32
-
-Access:	2010/11/23 08:26:17
-
-Owner:	XP1
-
-Host:	XPPro001
-
-Description:
-	Created by xp1.
-
-Root:	c:\XP1_dev
-
-AltRoots:
-	c:\XP1_dev_A1
-	c:\XP1_dev_A2
-
-Options:	noallwrite noclobber nocompress unlocked nomodtime normdir noaltsync
-
-SubmitOptions:	submitunchanged
-
-LineEnd:	local
-
-Type:   partitioned
-
-View:
-	//depot/dev/xp1/... //XP1_usr/depot/dev/xp1/...
-";
-
         /// <summary>
         ///A test for CreateDepot
         ///</summary>
@@ -724,7 +670,7 @@ View:
 
                     Server server = new Server(new ServerAddress(uri));
                     rep = new Repository(server);
-                    
+
                     using (Connection con = rep.Connection)
                     {
                         con.UserName = user;

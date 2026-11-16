@@ -51,7 +51,7 @@ namespace p4api.net.unit.test
 
         #region Additional test attributes
 
-        // 
+        //
         //You can use the following additional attributes as you write your tests:
         //
         //Use ClassInitialize to run code before running the first test in the class
@@ -840,7 +840,7 @@ namespace p4api.net.unit.test
 
                         target.InfoResultsReceived += cb;
 
-                        // add in the bad handler that throws an exception, to 
+                        // add in the bad handler that throws an exception, to
                         // make sure the event broadcaster can handle it.
                         target.InfoResultsReceived += bcb;
 
@@ -1582,7 +1582,7 @@ namespace p4api.net.unit.test
                         // connections are up, now cancel them
                         target.CancelCommand(7);
 
-                        // recheck the cancel 
+                        // recheck the cancel
                         int retries = 5;
                         while (!caughtCancel.WaitOne(250) && retries-- >= 0 && !done.WaitOne(250)) ;
                         // we only sync a small number of files, so if it doesn't complete in ~3s it's hung
@@ -1849,7 +1849,6 @@ namespace p4api.net.unit.test
                     connection.Connect(null);
                     connection.Client = null;
                     connection.ErrorReceived += OnConnectionErrorRecieved;
-                    connection.CommandTimeout = TimeSpan.FromSeconds(5);
 
                     var credential = connection.Login(pass,
                         new LoginCmdOptions(LoginCmdFlags.DisplayTicket, null));
@@ -2080,7 +2079,7 @@ namespace p4api.net.unit.test
                         P4ClientErrorList errors = null;
 
                         uint cmdId = 7;
-                        // a bad user will not fail on the servers from a.tar and u.tar, 
+                        // a bad user will not fail on the servers from a.tar and u.tar,
                         // so only test on s3.tar
                         if (cptype == Utilities.CheckpointType.S3)
                         {
@@ -2953,7 +2952,7 @@ namespace p4api.net.unit.test
                     adminSpace = Path.Combine(clientRoot, "admin_space");
                     Directory.CreateDirectory(adminSpace);
 
-                    // write a config file in the workspace root 
+                    // write a config file in the workspace root
 
                     string expected = Path.Combine(adminSpace, "myP4Config.txt");
                     P4Server.Update("P4CONFIG", "myP4Config.txt");

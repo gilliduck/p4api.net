@@ -26,7 +26,7 @@ namespace p4api.net.unit.test
 
         Platform current_platform;
 
-        Architecture current_architecture;
+        Architecture current_architecture = default;
 
         public PlatformID CurrentPlatform { get; set; }
         public string WindowsTestDirectory { get; set; }
@@ -566,7 +566,7 @@ namespace p4api.net.unit.test
             // unpack the tar ball
             si = new ProcessStartInfo(configuration.TarPath);
 
-            
+
             si.WorkingDirectory = untarredContentsDir;
 #if _LINUX
             si.Arguments = String.Format("--warning=no-unknown-keyword -xf {0}", tarFile);
